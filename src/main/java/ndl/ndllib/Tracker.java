@@ -32,7 +32,7 @@ public class Tracker extends Thread {
     protected boolean sleep = true;
     protected List<int[]> path = new ArrayList<>();
     
-    protected Mat gray, thresh, hierarchy, result;                 // To prevent creation of new variables at every frame
+    protected Mat gray, thresh, hierarchy, result, prev;                 // To prevent creation of new variables at every frame
     
     static {
         nu.pattern.OpenCV.loadShared();
@@ -98,25 +98,24 @@ public class Tracker extends Thread {
      */
     public Mat findNearestContour(Mat image) {
         // Convert the image to grayscale and apply binary thresholding
-        Rect rectCrop = new Rect(fieldROI[0], fieldROI[1], fieldROI[2]-fieldROI[0],fieldROI[3]-fieldROI[1]);
+        Rect rectCrop = new Rect(fieldROI[0], fieldROI[1], fieldROI[2] - fieldROI[0], fieldROI[3] - fieldROI[1]);
         image = new Mat(image, rectCrop);
         gray = new Mat();
         Imgproc.cvtColor(image, gray, Imgproc.COLOR_BGR2GRAY);
         thresh = new Mat();
         int threshCode = Imgproc.THRESH_BINARY;
-        if (this.threshold[1]-this.threshold[0] == 255) {
-            threshCode+=Imgproc.THRESH_OTSU;
+        if (this.threshold[1] - this.threshold[0] == 255) {
+            threshCode += Imgproc.THRESH_OTSU;
         }
         Imgproc.threshold(gray, thresh, this.threshold[0], this.threshold[1], threshCode);
-        
+
         // Find the contours in the thresholded image
         contours = new ArrayList<>();
         hierarchy = new Mat();
         Imgproc.findContours(thresh, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
-        
-        // Convert the point to an int array
-        int[] pointArray = {this.path.get(path.size()-1)[2], this.path.get(path.size()-1)[3]};
-        
+
+        int[] pointArray = new int[]{this.path.get(path.size() - 1)[2], this.path.get(path.size() - 1)[3]};
+
         // Find the nearest contour to the given point
         int[][] contourPoints = new int[contours.size()][2];
         for (int i = 0; i < contours.size(); i++) {
@@ -129,16 +128,17 @@ public class Tracker extends Thread {
         }
         int[][] nearestContourPoints = findPointsWithinRadius(pointArray, contourPoints, this.inclusionRadius);
         if (nearestContourPoints.length == 0) {
-            return image;
+            return findNearestContour(prev);
         }
         int nearestContourIndex = nearestContourPoints[0][0];
-        
+
         // Draw the nearest contour on a copy of the original image
         result = image.clone();
+        prev = image.clone();
         Imgproc.drawContours(result, contours, nearestContourIndex, new Scalar(0, 255, 0), 2);
-        
+
         this.path.add(nearestContourPoints[0]);
-        
+
         return result;
     }
     /*private Mat generateContours(Mat image) {
