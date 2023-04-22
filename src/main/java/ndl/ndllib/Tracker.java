@@ -359,10 +359,61 @@ public class Tracker extends Thread {
    public interface TrackerEventHandler {
         /**
          * Called every time the video moves through a frame.
+         * Note: It  is called outside the main thread, so you might have to make it synchronized.
          * @param im The image after cropping to fieldROI(See setFieldROI()) and drawing the contour nearest to the previous location.
          * @param playing Whether the code is going through the video or has paused.
          * @return Whether the code should continue going through the video or not.
          */
         boolean loopCall(Mat im, boolean playing);
+   }
+
+    /**
+     * An Implementation of TrackerEventHandler, which allows the user to create a buffer and pass it. The images tracked
+     * then get stored in the buffer.
+     */
+   public static class BufferEventHandler implements TrackerEventHandler {
+       protected List<Mat> buffer;
+       protected boolean playing;
+
+       /**
+        * Default Constructor
+        * @param buffer List, which serves as a buffer for images. images will be added to the end of the list.
+        *               Note: The Images are only added to the end, and not removed. They might have to be removed from
+        *               implementation end, to save memory.
+        */
+       public BufferEventHandler(List<Mat> buffer) {
+           this.buffer = buffer;
+           this.playing = true;
+       }
+
+       /**
+        * Called internally at every loop; does not need to b called by programmer.
+        * @param im The image after cropping to fieldROI(See setFieldROI()) and drawing the contour nearest to the previous location.
+        * @param playing Whether the code is going through the video or has paused.
+        * @return Whether to continue playing or not.
+        */
+       @Override
+       public synchronized boolean loopCall(Mat im, boolean playing) {
+           if (playing) { this.buffer.add(im); }
+           return this.playing;
+       }
+
+       /**
+        * Set whether to continue tracking or not.
+        * Might be useful if the data processing is slower than the rate at which The images are tracked,
+        * to help save memory and run the program smoothly.
+        * @param playing Whether the video is tracked or not.
+        */
+       public void setPlaying(boolean playing) {
+           this.playing = playing;
+       }
+
+       /**
+        * SEE: setPlaying()
+        * @return whether the video is tracked or not.
+        */
+       public boolean getPlaying() {
+           return this.playing;
+       }
    }
 }
